@@ -193,7 +193,6 @@ func tx(s: String) -> String:
 		s = s.replace(p[0], p[1])
 	return s
 #b.pressed.connect(Sound.click)
-
 func games_for(n: int, lan: bool = false) -> Array:
 	return ALL.filter(func(g): return n >= g[3] and n <= g[4] and (g[8] != "N" if not lan else g[8] != "L"))
 
