@@ -40,7 +40,8 @@ func title_label(t: String, fs: int = 62) -> Label:
 	l.add_theme_color_override("font_outline_color", Color("2d1b69"))
 	l.add_theme_constant_override("outline_size", 14)
 	l.resized.connect(func(): l.pivot_offset = l.size / 2)
-	var tw = get_tree().create_tween().set_loops()
+	# FIX: ربط الـ Tween بالنص حتى يتوقف عند حذفه (كان يسبب تجمّد اللعبة)
+	var tw = get_tree().create_tween().bind_node(l).set_loops()
 	tw.tween_property(l, "scale", Vector2(1.05, 1.05), 0.9).set_trans(Tween.TRANS_SINE)
 	tw.tween_property(l, "scale", Vector2.ONE, 0.9).set_trans(Tween.TRANS_SINE)
 	return l
