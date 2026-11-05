@@ -23,13 +23,15 @@ func hint_text() -> String:
 func begin() -> void:
 	start_round()
 
-func add_none() -> void:
-	pass
+func pop() -> void:
+	panel.pivot_offset = panel.size / 2.0
+	panel.scale = Vector2(0.94, 0.94)
+	create_tween().tween_property(panel, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func start_round() -> void:
 	phase = 1
 	Games.tint(panel, Color("d63031"))
-	panel.text = Games.L("انتظر...", "Wait...")
+	panel.text = Games.L("انتظر...", "Wait...") + "  %d/5" % (rounds + 1)
 	if not await wait(rng.randf_range(1.2, 3.5)):
 		return
 	if phase != 1:
@@ -37,6 +39,7 @@ func start_round() -> void:
 	phase = 2
 	Games.tint(panel, Color("00b894"))
 	panel.text = Games.L("الآن!", "NOW!")
+	pop()
 	Sound.tone(900, 0.15, 2)
 	t0 = Time.get_ticks_msec()
 
@@ -47,12 +50,15 @@ func tap() -> void:
 		total += 500
 		phase = 3
 		panel.text = Games.L("بدري! +500", "Too early! +500")
+		Games.tint(panel, Color("b33939"))
+		pop()
 		Sound.lose()
 	elif phase == 2:
 		var ms = Time.get_ticks_msec() - t0
 		total += ms
 		phase = 3
 		panel.text = "%d ms" % ms
+		pop()
 	else:
 		return
 	rounds += 1

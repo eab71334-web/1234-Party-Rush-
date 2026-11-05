@@ -11,6 +11,15 @@ var drew = false
 var drawn_idx = -1
 var call_flag = false
 var last_rect = Rect2()
+# --- تأثيرات ---
+var fly = []
+var opp_pos = {}
+var disc_pos = Vector2.ZERO
+var card_sz = Vector2(100, 150)
+var banner_t = 0.0
+var banner_txt = ""
+var banner_col = Color.WHITE
+var tt = 0.0
 
 func make_deck() -> Array:
 	var d = []
@@ -87,6 +96,21 @@ func build() -> void:
 	canvas(paint, inp)
 	show_turn()
 
+func _process(d: float) -> void:
+	super._process(d)
+	tt += d
+	banner_t = maxf(0.0, banner_t - d)
+	for f in fly:
+		f[2] += d
+	fly = fly.filter(func(f): return f[2] < 0.28)
+	if not over:
+		body.queue_redraw()
+
+func banner(t: String, c: Color) -> void:
+	banner_txt = t
+	banner_col = c
+	banner_t = 1.2
+
 func draw_one():
 	if deck.is_empty() and discard.size() > 1:
 		var top = discard.back()
@@ -138,14 +162,29 @@ func on_action(seat: int, d: Dictionary) -> void:
 		var c = hands[seat][i]
 		if not playable(c):
 			return
+		var from_pos = opp_pos.get(seat, disc_pos)
+		if seat == me() and i < hand_rects.size():
+			from_pos = hand_rects[i].position + Vector2(0, 24)
+		var prev_top = discard.back()
 		hands[seat].remove_at(i)
 		discard.append(c)
+		fly.append([c, from_pos, 0.0, prev_top])
 		drew = false
 		var steps = after_play(c, seat, int(d.get("c", 0)))
 		Sound.tone(700, 0.08, 2)
-		if hands[seat].size() == 1 and not bool(d.get("u", false)):
-			give(seat, 2)
-			Sound.lose()
+		if c[1] == "d2":
+			banner("+2", Color("ffd32a"))
+		elif c[1] == "d4":
+			banner("+4", Color("ff6b6b"))
+		elif c[1] == "skip":
+			banner(Games.L("تخطي", "Skip"), Color("4da3ff"))
+		if hands[seat].size() == 1:
+			if bool(d.get("u", false)):
+				banner(Games.L("آخر ورقة!", "LAST!"), Color("ff9f1a"))
+			else:
+				give(seat, 2)
+				Sound.lose()
+				banner(Games.L("نسي النداء! +2", "Forgot to call! +2"), Color("ff4757"))
 		if hands[seat].is_empty():
 			finish("فاز " + Games.PN[seat], col(seat))
 			body.queue_redraw()
@@ -163,6 +202,7 @@ func paint() -> void:
 	var m = me()
 	var ch = minf(H * 0.28, 220.0)
 	var cw = ch * 0.68
+	card_sz = Vector2(cw, ch)
 	var others = []
 	for s in players:
 		if s != m:
@@ -172,20 +212,29 @@ func paint() -> void:
 		var x = W * (k + 0.5) / others.size()
 		var pr = Rect2(x - 150, 6, 300, 62)
 		var active = (s == turn)
-		body.draw_style_box(Games.style(Games.PC[s].darkened(0.0 if active else 0.5), 28, 5), pr)
+		var pulse = 1.0 + (sin(tt * 5.0) * 0.03 if active else 0.0)
+		body.draw_style_box(Games.style(Games.PC[s].darkened(0.0 if active else 0.5), 28, 5), Rect2(pr.position, pr.size * pulse))
 		body.draw_string(f, pr.position + Vector2(20, 42), "%s  x%d" % [Games.PN[s], hands[s].size()], HORIZONTAL_ALIGNMENT_LEFT, 270, 30, Color.WHITE)
+		opp_pos[s] = Vector2(x - 150, 82)
 		for j in mini(hands[s].size(), 8):
 			draw_c(Rect2(x - 150 + j * 20, 82, 54, 78), null, false, false)
 	var cy = H * 0.5 - ch * 0.62
 	var dc = Vector2(W / 2.0 + cw * 0.75, cy + ch / 2.0)
+	disc_pos = dc - Vector2(cw, ch) / 2.0
 	pile_rect = Rect2(W / 2.0 - cw * 1.75, cy, cw, ch)
 	for j in 3:
 		draw_c(Rect2(pile_rect.position + Vector2(j * 4, -j * 4), pile_rect.size), null, false, false)
 	var cc = cur_color()
 	body.draw_circle(dc, ch * 0.68, Color(cc.r, cc.g, cc.b, 0.3))
-	draw_c(Rect2(dc - Vector2(cw, ch) / 2.0, Vector2(cw, ch)), discard.back(), true, false)
+	var top_card = discard.back()
+	if not fly.is_empty() and fly[0][3] != null:
+		top_card = fly[0][3]
+	draw_c(Rect2(disc_pos, Vector2(cw, ch)), top_card, true, false)
+	for fl in fly:
+		var k = 1.0 - pow(1.0 - clampf(fl[2] / 0.28, 0.0, 1.0), 3.0)
+		draw_c(Rect2(fl[1].lerp(disc_pos, k), Vector2(cw, ch)), fl[0], true, false)
 	var ty = cy + ch + 22
-	var tri = PackedVector2Array([Vector2(W / 2.0 - 40 * dir, ty), Vector2(W / 2.0 + 40 * dir, ty + 18), Vector2(W / 2.0 - 40 * dir, ty + 36)]) if false else PackedVector2Array([Vector2(W / 2.0 + 40 * dir, ty + 18), Vector2(W / 2.0 - 30 * dir, ty), Vector2(W / 2.0 - 30 * dir, ty + 36)])
+	var tri = PackedVector2Array([Vector2(W / 2.0 + 40 * dir, ty + 18), Vector2(W / 2.0 - 30 * dir, ty), Vector2(W / 2.0 - 30 * dir, ty + 36)])
 	body.draw_colored_polygon(tri, Color(1, 1, 1, 0.6))
 	hand_rects = []
 	var hand = hands[m]
@@ -208,7 +257,9 @@ func paint() -> void:
 		body.draw_style_box(Games.style(Color("ff9f1a") if call_flag else Color("57606f"), 30, 5), last_rect)
 		body.draw_string(f, last_rect.position + Vector2(0, 52), Games.L("آخر ورقة!", "LAST!"), HORIZONTAL_ALIGNMENT_CENTER, 200, 34, Color.WHITE)
 	if mine and not any:
-		body.draw_arc(pile_rect.get_center(), cw * 0.8, 0, TAU, 28, Color(1, 1, 0.3, 0.8), 6.0)
+		body.draw_arc(pile_rect.get_center(), cw * 0.8 + sin(tt * 6.0) * 4.0, 0, TAU, 28, Color(1, 1, 0.3, 0.8), 6.0)
+	if banner_t > 0.0:
+		body.draw_string(f, Vector2(0, H * 0.5 - ch * 0.75), banner_txt, HORIZONTAL_ALIGNMENT_CENTER, W, 70, Color(banner_col.r, banner_col.g, banner_col.b, minf(1.0, banner_t)))
 	if choosing >= 0:
 		body.draw_rect(Rect2(Vector2.ZERO, body.size), Color(0, 0, 0, 0.6))
 		for i in 4:

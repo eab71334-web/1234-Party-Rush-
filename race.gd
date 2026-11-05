@@ -3,11 +3,13 @@ extends "res://base.gd"
 var DURATION = 30.0
 var score = 0
 var time_left = 30.0
+var t_total = 30.0
 var running = false
 var lower_wins = false
 var area: Control
 var cd: Label
 var pills = []
+var tbar: ProgressBar
 var sent_score = -999999
 var send_t = 0.0
 var final_sent = false
@@ -49,6 +51,18 @@ func build() -> void:
 	area.add_child(cd)
 	time_left = DURATION
 	setup()
+	t_total = time_left
+	tbar = ProgressBar.new()
+	tbar.set_anchors_preset(PRESET_TOP_WIDE)
+	tbar.offset_top = 86
+	tbar.offset_bottom = 94
+	tbar.max_value = t_total
+	tbar.value = t_total
+	tbar.show_percentage = false
+	tbar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tbar.add_theme_stylebox_override("fill", Games.flat(Color("ffd32a"), 4))
+	tbar.add_theme_stylebox_override("background", Games.flat(Color(1, 1, 1, 0.12), 4))
+	body.add_child(tbar)
 	countdown()
 
 func setup() -> void:
@@ -63,10 +77,31 @@ func tick(_d: float) -> void:
 func hint_text() -> String:
 	return ""
 
+# ---------- اللمس: كل لمسة داخل المنطقة تُقرأ مستقلة (يدعم عدة أصابع) ----------
+func taps(e: InputEvent) -> Array:
+	if e is InputEventScreenTouch and e.pressed:
+		return [e.position]
+	if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT and not DisplayServer.is_touchscreen_available():
+		return [e.position]
+	return []
+
+func _input(e: InputEvent) -> void:
+	if not running or over:
+		return
+	for pt in taps(e):
+		if area.get_global_rect().has_point(pt):
+			on_tap(pt - area.global_position)
+
+func on_tap(_p: Vector2) -> void:
+	pass
+
 func countdown() -> void:
 	say(hint_text())
 	for n in [3, 2, 1]:
 		cd.text = str(n)
+		cd.pivot_offset = cd.size / 2.0
+		cd.scale = Vector2(1.4, 1.4)
+		create_tween().tween_property(cd, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		Sound.tone(400 + n * 80, 0.12, 2)
 		if not await wait(0.8):
 			return
@@ -82,7 +117,11 @@ func add(n: int) -> void:
 	if not running:
 		return
 	score += n
-	pills[my_seat if online else 0].text = str(score)
+	var p = pills[my_seat if online else 0]
+	p.text = str(score)
+	p.pivot_offset = p.size / 2.0
+	p.scale = Vector2(1.15, 1.15)
+	create_tween().tween_property(p, "scale", Vector2.ONE, 0.12)
 
 func _process(d: float) -> void:
 	super._process(d)
@@ -90,6 +129,9 @@ func _process(d: float) -> void:
 		return
 	time_left -= d
 	tick(d)
+	if not running:
+		return
+	tbar.value = maxf(time_left, 0.0)
 	say("%d     %d" % [ceili(maxf(time_left, 0.0)), score], col(my_seat))
 	send_t += d
 	if online and send_t > 0.3 and score != sent_score:

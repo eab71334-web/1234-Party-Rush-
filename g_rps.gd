@@ -10,6 +10,7 @@ func mk(kind: String) -> Control:
 	var a = Control.new()
 	a.set_script(load("res://art.gd"))
 	a.set("kind", kind)
+	a.resized.connect(func(): a.pivot_offset = a.size / 2.0)
 	return a
 
 func build() -> void:
@@ -67,8 +68,14 @@ func on_action(seat: int, d: Dictionary) -> void:
 	var s = seat if online else stage
 	if s > 1 or picks[s] != -1:
 		return
-	picks[s] = int(d.get("k", 0))
+	picks[s] = clampi(int(d.get("k", 0)), 0, 2)
 	Sound.tone(500, 0.05, 2)
+	if show_l != null and s == 0:
+		show_l.set("kind", "rps_hand")
+		show_l.queue_redraw()
+	if show_r != null and s == 1:
+		show_r.set("kind", "rps_hand")
+		show_r.queue_redraw()
 	if not online:
 		stage += 1
 	if picks[0] != -1 and picks[1] != -1:
@@ -76,25 +83,50 @@ func on_action(seat: int, d: Dictionary) -> void:
 	else:
 		prompt()
 
+func shake() -> void:
+	for beat in 3:
+		var tw = create_tween().set_parallel(true)
+		tw.tween_property(show_l, "rotation", -0.25, 0.09)
+		tw.tween_property(show_r, "rotation", 0.25, 0.09)
+		Sound.tone(300 + beat * 80, 0.08, 2)
+		await get_tree().create_timer(0.09).timeout
+		var tw2 = create_tween().set_parallel(true)
+		tw2.tween_property(show_l, "rotation", 0.25, 0.09)
+		tw2.tween_property(show_r, "rotation", -0.25, 0.09)
+		await get_tree().create_timer(0.09).timeout
+	show_l.rotation = 0.0
+	show_r.rotation = 0.0
+
 func reveal() -> void:
 	revealing = true
+	await shake()
+	if not is_inside_tree():
+		return
 	var names = ["rps_rock", "rps_paper", "rps_scissors"]
 	show_l.set("kind", names[picks[0]])
 	show_r.set("kind", names[picks[1]])
 	show_l.queue_redraw()
 	show_r.queue_redraw()
+	show_l.scale = Vector2(1.3, 1.3)
+	show_r.scale = Vector2(1.3, 1.3)
+	create_tween().tween_property(show_l, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	create_tween().tween_property(show_r, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	var r = (picks[0] - picks[1] + 3) % 3
 	if r == 1:
 		sc[0] += 1
+		show_r.modulate = Color(0.5, 0.5, 0.5)
 		say("فاز " + Games.PN[0], col(0))
 	elif r == 2:
 		sc[1] += 1
+		show_l.modulate = Color(0.5, 0.5, 0.5)
 		say("فاز " + Games.PN[1], col(1))
 	else:
 		say("تعادل", Color.WHITE)
 	Sound.tone(600, 0.2, 2)
-	if not await wait(1.8):
+	if not await wait(1.6):
 		return
+	show_l.modulate = Color.WHITE
+	show_r.modulate = Color.WHITE
 	if sc[0] >= 2 or sc[1] >= 2:
 		var w = 0 if sc[0] >= 2 else 1
 		revealing = false

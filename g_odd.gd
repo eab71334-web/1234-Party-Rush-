@@ -20,6 +20,7 @@ func begin() -> void:
 
 func rebuild() -> void:
 	for c in grid.get_children():
+		grid.remove_child(c)
 		c.queue_free()
 	grid.columns = n
 	var hue = rng.randf()
@@ -33,6 +34,9 @@ func rebuild() -> void:
 		b.custom_minimum_size = Vector2(sz, sz)
 		b.button_down.connect(pick.bind(i == odd_i))
 		grid.add_child(b)
+		b.pivot_offset = Vector2(sz, sz) / 2.0
+		b.scale = Vector2(0.7, 0.7)
+		create_tween().tween_property(b, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func pick(ok: bool) -> void:
 	if not running:
@@ -47,3 +51,5 @@ func pick(ok: bool) -> void:
 	else:
 		add(-1)
 		Sound.tone(180, 0.12, 1)
+		grid.modulate = Color(1, 0.55, 0.55)
+		create_tween().tween_property(grid, "modulate", Color.WHITE, 0.3)

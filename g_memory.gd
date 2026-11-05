@@ -13,7 +13,7 @@ func build() -> void:
 	for i in 10:
 		cards.append(i)
 		cards.append(i)
-	cards.shuffle()
+	rshuffle(cards)
 	for i in players:
 		scores.append(0)
 	var g = center_grid(4, 14)
@@ -60,7 +60,7 @@ func on_action(_seat: int, d: Dictionary) -> void:
 	do_flip(int(d.get("i", 0)))
 
 func do_flip(i: int) -> void:
-	if open.has(i) or bs[i].disabled:
+	if i < 0 or i >= 20 or open.has(i) or bs[i].disabled:
 		return
 	busy = true
 	open.append(i)
@@ -81,6 +81,11 @@ func do_flip(i: int) -> void:
 		for k in [a, b]:
 			bs[k].disabled = true
 			Games.tint(bs[k], col(turn).lightened(0.5))
+			bs[k].add_theme_stylebox_override("disabled", Games.style(col(turn).lightened(0.5)))
+			bs[k].pivot_offset = bs[k].size / 2.0
+			var tw = create_tween()
+			tw.tween_property(bs[k], "scale", Vector2(1.12, 1.12), 0.1)
+			tw.tween_property(bs[k], "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	else:
 		await reveal(a, false)
 		await reveal(b, false)
@@ -109,5 +114,5 @@ func refresh() -> void:
 	else:
 		var s = ""
 		for i in players:
-			s += "%d " % scores[i]
+			s += "%s %d   " % [Games.PN[i], scores[i]]
 		say("دور %s  |  %s" % [Games.PN[turn], s], col(turn))

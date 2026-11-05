@@ -29,22 +29,34 @@ func hint_text() -> String:
 func begin() -> void:
 	next_round()
 
+func dur() -> float:
+	return maxf(0.18, 0.35 - seq.size() * 0.012)
+
 func flash(i: int, t: float) -> void:
-	pads[i].modulate = Color.WHITE
+	var b = pads[i]
+	b.modulate = Color.WHITE
+	b.pivot_offset = b.size / 2.0
+	b.scale = Vector2(1.06, 1.06)
 	Sound.tone(260 + i * 100, t, 0, -4.0)
 	if not await wait(t):
 		return
-	pads[i].modulate = Color(0.5, 0.5, 0.5)
+	b.modulate = Color(0.5, 0.5, 0.5)
+	b.scale = Vector2.ONE
+
+func replay() -> void:
+	for s in seq:
+		if not running:
+			return
+		await flash(s, dur())
+		if not await wait(0.1):
+			return
 
 func next_round() -> void:
 	accept = false
 	seq.append(rng.randi() % 4)
 	if not await wait(0.5):
 		return
-	for s in seq:
-		await flash(s, 0.35)
-		if not await wait(0.12):
-			return
+	await replay()
 	accept = true
 	idx_p = 0
 
@@ -63,10 +75,11 @@ func tap(i: int) -> void:
 		add(-1)
 		Sound.lose()
 		idx_p = 0
+		for b in pads:
+			b.modulate = Color(1.0, 0.45, 0.45)
 		if not await wait(0.5):
 			return
-		for s in seq:
-			await flash(s, 0.3)
-			if not await wait(0.1):
-				return
+		for b in pads:
+			b.modulate = Color(0.5, 0.5, 0.5)
+		await replay()
 		accept = true

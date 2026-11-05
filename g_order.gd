@@ -21,6 +21,7 @@ func begin() -> void:
 
 func rebuild() -> void:
 	for c in grid.get_children():
+		grid.remove_child(c)
 		c.queue_free()
 	nxt = 1
 	var nums = []
@@ -33,9 +34,12 @@ func rebuild() -> void:
 		b.custom_minimum_size = Vector2(sz, sz)
 		b.button_down.connect(tap.bind(v, b))
 		grid.add_child(b)
+		b.pivot_offset = Vector2(sz, sz) / 2.0
+		b.scale = Vector2(0.7, 0.7)
+		create_tween().tween_property(b, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func tap(v: int, b: Button) -> void:
-	if not running:
+	if not running or b.disabled:
 		return
 	if v == nxt:
 		add(1)
@@ -49,3 +53,5 @@ func tap(v: int, b: Button) -> void:
 	else:
 		add(-1)
 		Sound.tone(180, 0.1, 1)
+		b.modulate = Color(1, 0.5, 0.5)
+		create_tween().tween_property(b, "modulate", Color.WHITE, 0.25)

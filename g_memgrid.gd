@@ -29,6 +29,11 @@ func hint_text() -> String:
 func begin() -> void:
 	new_round()
 
+func bump(t: Control) -> void:
+	t.pivot_offset = t.size / 2.0
+	t.scale = Vector2(0.88, 0.88)
+	create_tween().tween_property(t, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
 func new_round() -> void:
 	accept = false
 	found = []
@@ -45,6 +50,7 @@ func new_round() -> void:
 		return
 	for i in target:
 		Games.tint(tiles[i], Color("ffd32a"))
+		bump(tiles[i])
 	if not await wait(0.9 + k * 0.1):
 		return
 	for t in tiles:
@@ -54,6 +60,7 @@ func new_round() -> void:
 func tap(i: int) -> void:
 	if not accept or not running or found.has(i):
 		return
+	bump(tiles[i])
 	if target.has(i):
 		found.append(i)
 		Games.tint(tiles[i], Color("2ed573"))
@@ -68,8 +75,11 @@ func tap(i: int) -> void:
 	else:
 		accept = false
 		Games.tint(tiles[i], Color("ff4757"))
+		for t in target:
+			if not found.has(t):
+				Games.tint(tiles[t], Color("ffd32a"))
 		add(-1)
 		Sound.lose()
-		if not await wait(0.7):
+		if not await wait(0.9):
 			return
 		new_round()

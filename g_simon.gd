@@ -13,14 +13,22 @@ func build() -> void:
 		b.button_down.connect(tap.bind(i))
 		g.add_child(b)
 		pads.append(b)
+		Games.pop(b, i * 0.08)
 	next_round()
 
-func flash(i: int, ms: float = 0.4) -> void:
-	pads[i].modulate = Color.WHITE
-	Sound.tone(260 + i * 100, ms, 0, -4.0)
-	if not await wait(ms):
+func dur() -> float:
+	return maxf(0.18, 0.42 - seq.size() * 0.015)
+
+func glow(i: int, t: float) -> void:
+	var b = pads[i]
+	b.modulate = Color.WHITE
+	b.pivot_offset = b.size / 2.0
+	b.scale = Vector2(1.06, 1.06)
+	Sound.tone(260 + i * 100, t, 0, -4.0)
+	if not await wait(t):
 		return
-	pads[i].modulate = Color(0.5, 0.5, 0.5)
+	b.modulate = Color(0.5, 0.5, 0.5)
+	b.scale = Vector2.ONE
 
 func next_round() -> void:
 	accept = false
@@ -29,8 +37,8 @@ func next_round() -> void:
 	if not await wait(0.8):
 		return
 	for s in seq:
-		await flash(s)
-		if not await wait(0.15):
+		await glow(s, dur())
+		if not await wait(0.12):
 			return
 	accept = true
 	idx = 0
@@ -39,7 +47,7 @@ func next_round() -> void:
 func tap(i: int) -> void:
 	if not accept or over:
 		return
-	flash(i, 0.2)
+	glow(i, 0.2)
 	if seq[idx] == i:
 		idx += 1
 		if idx == seq.size():
@@ -50,4 +58,6 @@ func tap(i: int) -> void:
 	else:
 		accept = false
 		Sound.lose()
+		for b in pads:
+			b.modulate = Color(1.0, 0.45, 0.45)
 		finish("❌ وصلت للمستوى %d" % seq.size(), Color("ff7675"))

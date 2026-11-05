@@ -1,7 +1,6 @@
-extends "res://base.gd"
+extends "res://zones.gd"
 var p = 0.5
-var pan = []
-var lab = []
+var shown = 0.5
 var tops = []
 var lows = []
 var top_box: HBoxContainer
@@ -43,22 +42,23 @@ func build() -> void:
 			lows.append(s)
 	say(Games.L("شدّ الحبل! لكل لاعب مساحته", "Tug of war! Each player has a zone"), Color.WHITE)
 
-func _input(e: InputEvent) -> void:
-	if over:
-		return
-	for pt in presses(e):
-		for s in seats:
-			if s != bot_seat and pan[s].get_global_rect().has_point(pt):
-				pull(s)
-
 func _process(d: float) -> void:
 	super._process(d)
-	if over or bot_seat < 0:
+	if not over and bot_seat >= 0:
+		bot_t2 += d
+		if bot_t2 >= 0.22:
+			bot_t2 = 0.0
+			press_flash(bot_seat)
+			pull(bot_seat)
+	shown = lerpf(shown, p, 1.0 - exp(-d * 14.0))
+	top_box.size_flags_stretch_ratio = maxf(shown, 0.02)
+	low_box.size_flags_stretch_ratio = maxf(1.0 - shown, 0.02)
+
+func on_zone_press(s: int, pt: Vector2) -> void:
+	if over or s == bot_seat:
 		return
-	bot_t2 += d
-	if bot_t2 >= 0.22:
-		bot_t2 = 0.0
-		pull(bot_seat)
+	press_fx(s, pt)
+	pull(s)
 
 func pull(s: int) -> void:
 	if over:
@@ -69,48 +69,16 @@ func pull(s: int) -> void:
 	p += power if top else -power
 	Sound.tone(300 + (150 if top else 0), 0.04, 2, -12.0)
 	pulse(lab[s])
-	top_box.size_flags_stretch_ratio = maxf(p, 0.02)
-	low_box.size_flags_stretch_ratio = maxf(1.0 - p, 0.02)
 	if p >= 0.94:
-		finish(Games.L("فاز الفريق العلوي", "Top team wins"), col(tops[0]))
+		end_tug(true)
 	elif p <= 0.06:
+		end_tug(false)
+
+func end_tug(top_wins: bool) -> void:
+	for s in seats:
+		if team_top(s) != top_wins:
+			pan[s].modulate = Color(0.55, 0.55, 0.55)
+	if top_wins:
+		finish(Games.L("فاز الفريق العلوي", "Top team wins"), col(tops[0]))
+	else:
 		finish(Games.L("فاز الفريق السفلي", "Bottom team wins"), col(lows[0]))
-
-func slots(n: int) -> Array:
-	if n == 2:
-		return [1, 0]
-	if n == 3:
-		return [2, -1, 0, 1]
-	if n >= 4:
-		return [2, 3, 0, 1]
-	return [0]
-
-func presses(e: InputEvent) -> Array:
-	if e is InputEventScreenTouch and e.pressed:
-		return [e.position]
-	if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT and not DisplayServer.is_touchscreen_available():
-		return [e.position]
-	return []
-
-func make_zone(s: int, rotated: bool) -> Array:
-	var p = Panel.new()
-	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	p.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	p.add_theme_stylebox_override("panel", Games.style(col(s), 34, 10))
-	var l = big_label("", 110, Color.WHITE)
-	l.set_anchors_preset(PRESET_FULL_RECT)
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if rotated:
-		l.rotation = PI
-		l.resized.connect(func(): l.pivot_offset = l.size / 2.0)
-	p.add_child(l)
-	return [p, l]
-
-func paint_zone(p: Panel, c: Color) -> void:
-	p.add_theme_stylebox_override("panel", Games.style(c, 34, 10))
-
-func pulse(l: Control) -> void:
-	l.pivot_offset = l.size / 2.0
-	l.scale = Vector2(1.35, 1.35)
-	create_tween().tween_property(l, "scale", Vector2.ONE, 0.18)

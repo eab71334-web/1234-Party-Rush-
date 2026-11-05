@@ -7,6 +7,7 @@ var NOPTS = 4
 var COLS = 2
 var PENALTY = 1
 var cooldown = false
+var streak = 0
 
 func setup() -> void:
 	prompt = Label.new()
@@ -48,22 +49,49 @@ func set_opt(i: int, t: String, c: Color = Color("6c5ce7")) -> void:
 	optb[i].text = Games.tx(t)
 	Games.tint(optb[i], c)
 
+func flash_opt(i: int, c: Color) -> void:
+	if i < 0 or i >= optb.size():
+		return
+	var b = optb[i]
+	b.modulate = c
+	create_tween().tween_property(b, "modulate", Color.WHITE, 0.3)
+
+func pop_prompt() -> void:
+	if prompt == null:
+		return
+	prompt.pivot_offset = prompt.size / 2.0
+	prompt.scale = Vector2(0.85, 0.85)
+	create_tween().tween_property(prompt, "scale", Vector2.ONE, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
 func choose(i: int) -> void:
 	if not running or cooldown:
 		return
 	if i == ans:
-		add(1)
+		streak += 1
+		add(2 if streak % 5 == 0 else 1)
+		flash_opt(i, Color("7dffb0"))
 		Sound.tone(900, 0.08, 2)
+		next_q()
+		pop_prompt()
 	else:
+		streak = 0
 		add(-PENALTY)
+		flash_opt(i, Color("ff6b6b"))
+		flash_opt(ans, Color("7dffb0"))
 		Sound.tone(180, 0.15, 1)
-	next_q()
+		cooldown = true
+		if not await wait(0.3):
+			return
+		cooldown = false
+		if running:
+			next_q()
+			pop_prompt()
 
 func num_opts(val: int, spread: int = 6) -> void:
 	var others = []
 	while others.size() < NOPTS - 1:
 		var v = val + rng.randi_range(-spread, spread)
-		if v != val and not others.has(v):
+		if v != val and v >= 0 and not others.has(v):
 			others.append(v)
 	var pos = rng.randi() % NOPTS
 	for i in NOPTS:
